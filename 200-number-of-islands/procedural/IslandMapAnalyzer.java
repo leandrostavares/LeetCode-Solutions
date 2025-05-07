@@ -7,12 +7,14 @@
 public class IslandMapAnalyzer {
 
     private final int[][] grid;
-    private int[][][] islandGroups;
+    private int[][] islandGroups;
     private int islandCount = 0;
+    private final int MAX_COLS;
 
     public IslandMapAnalyzer(int[][] grid) {
         this.grid = grid;
-        islandGroups = new int[256][][]; // Initial capacity
+        MAX_COLS = grid[0].length;
+        islandGroups = new int[256][]; // Initial capacity
     }
 
     /**
@@ -25,8 +27,8 @@ public class IslandMapAnalyzer {
             for (int col = 0; col < grid[row].length; col++) {
                 boolean isLand = grid[row][col] == 1;
                 if (isLand) {
-                    int[] currentLandCoordinates = new int[]{row, col};
-                    connectLandCell(currentLandCoordinates);
+                    int currentEncodedCoordinate = encodeCoordinates(row,col);
+                    connectLandCell(currentEncodedCoordinate);
                 }
             }
         }
@@ -37,12 +39,12 @@ public class IslandMapAnalyzer {
      * Integrates a new land cell into existing islands if it's adjacent.
      * If no adjacent islands are found, a new island is created.
      */
-    private void connectLandCell(int[] currentLandCoordinates) {
-        int[] adjacentIslands = findAdjacentIslands(currentLandCoordinates);
+    private void connectLandCell(int encodedCoordinate) {
+        int[] adjacentIslands = findAdjacentIslands(encodedCoordinate);
         if (adjacentIslands.length > 0) {
-            mergeIslandsAndLand(adjacentIslands, currentLandCoordinates);
+            mergeIslandsAndLand(adjacentIslands, encodedCoordinate);
         } else {
-            createNewIsland(currentLandCoordinates);
+            createNewIsland(encodedCoordinate);
         }
     }
 
@@ -51,12 +53,12 @@ public class IslandMapAnalyzer {
      * (above or to the left) to any of them.
      * Returns the indexes of at most two adjacent islands.
      */
-    private int[] findAdjacentIslands(int[] newLandPosition) {
+    private int[] findAdjacentIslands(int encodedCoordinate) {
         int[] adjacentIslands = new int[0];
         for (int islandIndex = 0; islandIndex < islandCount; islandIndex++) {
             for (int landIndex = 0; landIndex < islandGroups[islandIndex].length; landIndex++) {
-                int[] existingLandPosition = islandGroups[islandIndex][landIndex];
-                boolean hasNeighbor = isAdjacentUpOrLeft(existingLandPosition, newLandPosition);
+                int encodedExistingLand = islandGroups[islandIndex][landIndex];
+                boolean hasNeighbor = isAdjacentUpOrLeft(encodedExistingLand, encodedCoordinate);
                 if (hasNeighbor) {
                     adjacentIslands = appendIslandIndex(adjacentIslands, islandIndex);
                     break;
@@ -72,14 +74,17 @@ public class IslandMapAnalyzer {
      * This is the only adjacency rule used, which guarantees that each new
      * land cell can be adjacent to at most two existing islands.
      */
-    private boolean isAdjacentUpOrLeft(int[] existingLandPosition, int[] newLandPosition) {
-        int currentRow = existingLandPosition[0];
-        int currentCol = existingLandPosition[1];
-        int landRow = newLandPosition[0];
-        int landCol = newLandPosition[1];
+    private boolean isAdjacentUpOrLeft(int encodedExistingLand, int encodedCoordinate) {
+        int[] newLandCoordinates = decodeCoordinates(encodedCoordinate);
+        int row = newLandCoordinates[0];
+        int col = newLandCoordinates[1];
 
-        return (landRow - 1 == currentRow && landCol == currentCol) ||
-                (landRow == currentRow && landCol - 1 == currentCol);
+        int[] existingLandCoordinates = decodeCoordinates(encodedExistingLand);
+        int existingRow = existingLandCoordinates[0];
+        int existingCol = existingLandCoordinates[1];
+
+        return (row - 1 == existingRow && existingCol == col) ||
+                (row == existingRow && existingCol == col -1);
     }
 
     /**
@@ -101,15 +106,15 @@ public class IslandMapAnalyzer {
      * If connected to two islands, merges both into one.
      * If connected to a single island, the land is simply appended to it.
      */
-    private void mergeIslandsAndLand(int[] connectedIslands, int[] currentLandCoordinates) {
+    private void mergeIslandsAndLand(int[] connectedIslands, int encodedCoordinate) {
         int firstIslandIndex = connectedIslands[0];
-        int[][] firstIsland = islandGroups[firstIslandIndex];
-        addLandToIsland(firstIsland,firstIslandIndex,currentLandCoordinates);
+        int[] firstIsland = islandGroups[firstIslandIndex];
+        addLandToIsland(firstIsland,firstIslandIndex,encodedCoordinate);
 
         if (connectedIslands.length > 1) {
             int secondIslandIndex = connectedIslands[1];
-            int[][] secondIsland = islandGroups[secondIslandIndex];
-            int[][] mergedIsland = getMergedIsland(firstIsland,secondIsland);
+            int[] secondIsland = islandGroups[secondIslandIndex];
+            int[] mergedIsland = getMergedIsland(firstIsland,secondIsland);
             islandGroups[firstIslandIndex] = mergedIsland;
             removeSecondIslandFromArray(secondIslandIndex);
         }
@@ -119,9 +124,10 @@ public class IslandMapAnalyzer {
      * Returns a new island array by concatenating the land cells of two islands.
      * Used when the new land bridges two distinct islands.
      */
-    private int[][] getMergedIsland(int[][] firstIsland,int[][] secondIsland) {
+    private int[] getMergedIsland(int[] firstIsland,int[] secondIsland) {
         int size = firstIsland.length + secondIsland.length;
-        int[][] mergedIsland = new int[size][];
+        int[] mergedIsland = new int[size];
+
         for (int i = 0; i < firstIsland.length ; i++) {
             mergedIsland[i] = firstIsland[i];
         }
@@ -148,13 +154,13 @@ public class IslandMapAnalyzer {
      * Expands the target island to include a new land cell.
      * Updates the islands array at the specified index.
      */
-    private void addLandToIsland(int[][] island,int islandIndex, int[] currentLandCoordinates) {
+    private void addLandToIsland(int[] island,int islandIndex, int encodedCoordinate) {
         int size = island.length;
-        int[][] expandedIsland = new int[size + 1][];
+        int[] expandedIsland = new int[size + 1];
         for (int i = 0; i < size; i++) {
             expandedIsland[i] = island[i];
         }
-        expandedIsland[size] = currentLandCoordinates;
+        expandedIsland[size] = encodedCoordinate;
         islandGroups[islandIndex] = expandedIsland;
     }
 
@@ -162,10 +168,10 @@ public class IslandMapAnalyzer {
      * Creates a new island consisting of a single land cell
      * and adds it to the islands array.
      */
-    private void createNewIsland(int[] currentLandCoordinates) {
+    private void createNewIsland(int encodedCoordinate) {
         ensureCapacityForIslands();
-        int[][] newIsland = new int[1][];
-        newIsland[0] = currentLandCoordinates;
+        int[] newIsland = new int[1];
+        newIsland[0] = encodedCoordinate;
         islandGroups[islandCount++] = newIsland;
     }
 
@@ -175,12 +181,22 @@ public class IslandMapAnalyzer {
      */
     private void ensureCapacityForIslands() {
         if (islandCount == islandGroups.length) {
-            int[][][] resizedIslands = new int[islandGroups.length * 2][][];
+            int[][] resizedIslands = new int[islandGroups.length * 2][];
             for (int i = 0; i < islandCount; i++) {
                 resizedIslands[i] = islandGroups[i];
             }
             islandGroups = resizedIslands;
         }
+    }
+
+    private int encodeCoordinates(int row, int col) {
+        return row * MAX_COLS + col;
+    }
+
+    private int[] decodeCoordinates(int encodedCoordinate) {
+        int col = encodedCoordinate % MAX_COLS;
+        int row = encodedCoordinate / MAX_COLS;
+        return new int[]{row, col};
     }
 
 }
