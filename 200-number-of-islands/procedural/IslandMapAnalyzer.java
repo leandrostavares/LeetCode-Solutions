@@ -1,58 +1,64 @@
+/**
+ * Analyzes a 2D map to identify and count disconnected land masses (islands).
+ * Does not use standard algorithms like DFS or BFS.
+ * Islands are tracked using primitive arrays and adjacency logic (top and left neighbors only).
+ */
+
 public class IslandMapAnalyzer {
 
-    private final int[][] map;
-    private int[][][] islands = new int[0][][];
+    private final int[][] grid;
+    private int[][][] islandGroups;
+    private int islandCount = 0;
 
-    public IslandMapAnalyzer(int[][] map) {
-        this.map = map;
+    public IslandMapAnalyzer(int[][] grid) {
+        this.grid = grid;
+        islandGroups = new int[256][][]; // Initial capacity
     }
 
     /**
-     * Iterates through the entire map grid to identify land cells (value == 1).
-     * For each land cell, it tries to associate it with existing islands or
-     * create a new one if necessary.
-     * Returns the total number of islands found in the map.
+     * Iterates over the entire map to identify land cells (value == 1).
+     * Each land cell is either merged into an existing island or starts a new one.
+     * Returns the total number of identified islands.
      */
     public int checkMap() {
-        for (int row = 0; row < map.length; row++) {
-            for (int col = 0; col < map[row].length; col++) {
-                boolean isLand = map[row][col] == 1;
+        for (int row = 0; row < grid.length; row++) {
+            for (int col = 0; col < grid[row].length; col++) {
+                boolean isLand = grid[row][col] == 1;
                 if (isLand) {
-                    int[] newLandPosition = new int[]{row, col};
-                    integrateLandIntoIslands(newLandPosition);
+                    int[] currentLandCoordinates = new int[]{row, col};
+                    connectLandCell(currentLandCoordinates);
                 }
             }
         }
-        return islands.length;
+        return islandCount;
     }
 
     /**
-     * Determines whether the new land position connects to any existing islands.
-     * If it does, merges it accordingly. Otherwise, creates a new isolated island.
+     * Integrates a new land cell into existing islands if it's adjacent.
+     * If no adjacent islands are found, a new island is created.
      */
-    private void integrateLandIntoIslands(int[] newLandPosition) {
-        int[] connectedIslands = getAdjacentIslands(newLandPosition);
-        if (connectedIslands.length > 0) {
-            mergeIslandsAndLand(connectedIslands, newLandPosition);
+    private void connectLandCell(int[] currentLandCoordinates) {
+        int[] adjacentIslands = findAdjacentIslands(currentLandCoordinates);
+        if (adjacentIslands.length > 0) {
+            mergeIslandsAndLand(adjacentIslands, currentLandCoordinates);
         } else {
-            createNewIsland(newLandPosition);
+            createNewIsland(currentLandCoordinates);
         }
     }
 
     /**
-     * Checks if the new land position is adjacent (above or to the left)
-     * to any existing island. Since only these two directions are considered,
-     * at most two adjacent islands can be found.
-     * Returns the indexes of the adjacent islands, if any.
+     * Scans all current islands to check if the new land cell is adjacent
+     * (above or to the left) to any of them.
+     * Returns the indexes of at most two adjacent islands.
      */
-    private int[] getAdjacentIslands(int[] newLandPosition) {
+    private int[] findAdjacentIslands(int[] newLandPosition) {
         int[] adjacentIslands = new int[0];
-        for (int islandIndex = 0; islandIndex < islands.length; islandIndex++) {
-            for (int landIndex = 0; landIndex < islands[islandIndex].length; landIndex++) {
-                int[] existingLandPosition = islands[islandIndex][landIndex];
+        for (int islandIndex = 0; islandIndex < islandCount; islandIndex++) {
+            for (int landIndex = 0; landIndex < islandGroups[islandIndex].length; landIndex++) {
+                int[] existingLandPosition = islandGroups[islandIndex][landIndex];
                 boolean hasNeighbor = isAdjacentUpOrLeft(existingLandPosition, newLandPosition);
                 if (hasNeighbor) {
-                    adjacentIslands = addToNeighborIslands(adjacentIslands, islandIndex);
+                    adjacentIslands = appendIslandIndex(adjacentIslands, islandIndex);
                     break;
                 }
             }
@@ -77,11 +83,10 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Appends a new island index to the list of adjacent islands.
-     * This is used during adjacency detection when a neighboring
-     * island is found.
+     * Returns a new array containing the existing adjacent island indexes
+     * plus the newly found one.
      */
-    private int[] addToNeighborIslands(int[] adjacentIslands, int islandIndex) {
+    private int[] appendIslandIndex(int[] adjacentIslands, int islandIndex) {
         int size = adjacentIslands.length;
         int[] newIdentifiedIslands = new int[size + 1];
         for (int i = 0; i < size; i++) {
@@ -92,30 +97,27 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Merges the new land position into the adjacent island(s).
-     * Since only top and left neighbors are considered, at most
-     * two adjacent islands can exist.
-     *
-     * If two islands are adjacent, they are merged along with the new land.
-     * If only one island is adjacent, the new land is added to it.
+     * Merges the new land cell into the connected island(s).
+     * If connected to two islands, merges both into one.
+     * If connected to a single island, the land is simply appended to it.
      */
-    private void mergeIslandsAndLand(int[] connectedIslands, int[] newLandPosition) {
-        int[][] firstIsland = islands[connectedIslands[0]];
-        int[][] mergedIsland;
+    private void mergeIslandsAndLand(int[] connectedIslands, int[] currentLandCoordinates) {
+        int firstIslandIndex = connectedIslands[0];
+        int[][] firstIsland = islandGroups[firstIslandIndex];
+        addLandToIsland(firstIsland,firstIslandIndex,currentLandCoordinates);
+
         if (connectedIslands.length > 1) {
-            int[][] secondIsland = islands[connectedIslands[1]];
-            mergedIsland = getMergedIsland(firstIsland,secondIsland);
-            mergedIsland = addLandToIsland(mergedIsland,newLandPosition);
-            realocateMergedIslandOnMap(mergedIsland,connectedIslands[0],connectedIslands[1]);
-        } else {
-            mergedIsland = addLandToIsland(firstIsland,newLandPosition);
-            realocateMergedIslandOnMap(mergedIsland,connectedIslands[0]);
+            int secondIslandIndex = connectedIslands[1];
+            int[][] secondIsland = islandGroups[secondIslandIndex];
+            int[][] mergedIsland = getMergedIsland(firstIsland,secondIsland);
+            islandGroups[firstIslandIndex] = mergedIsland;
+            removeSecondIslandFromArray(secondIslandIndex);
         }
     }
 
     /**
-     * Concatenates the land positions of two islands into a single new island array.
-     * This is used when a new land cell connects two previously separate islands.
+     * Returns a new island array by concatenating the land cells of two islands.
+     * Used when the new land bridges two distinct islands.
      */
     private int[][] getMergedIsland(int[][] firstIsland,int[][] secondIsland) {
         int size = firstIsland.length + secondIsland.length;
@@ -131,71 +133,54 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Replaces a specific island in the islands array with a newly merged version.
-     * This is used when only one island is involved in the merge.
+     * Removes the second island involved in a merge by shifting
+     * all subsequent islands left in the array.
+     * Decreases the total island count.
      */
-    private void realocateMergedIslandOnMap(int[][] mergedIsland, int index) {
-        int[][][] newIslands = new int[islands.length][][];
-        for (int i = 0; i < islands.length; i++) {
-            if (i == index) {
-                newIslands[i] = mergedIsland;
-            } else {
-                newIslands[i] = islands[i];
-            }
+    private void removeSecondIslandFromArray(int indexToRemove) {
+        for (int i = indexToRemove; i < islandCount - 1; i++) {
+            islandGroups[i] = islandGroups[i + 1];
         }
-        islands = newIslands;
+        islandCount--;
     }
 
     /**
-     * Replaces one island in the islands array with a merged version,
-     * and removes the second island involved in the merge.
-     * Used when two islands are connected by the new land cell.
+     * Expands the target island to include a new land cell.
+     * Updates the islands array at the specified index.
      */
-    private void realocateMergedIslandOnMap(int[][] mergedIsland, int index, int indexToRemove) {
-        int newSize = islands.length-1;
-        int[][][] newIslands = new int[newSize][][];
-        for (int i = 0; i < newSize; i++) {
-            if (i >= indexToRemove) {
-                newIslands[i] = islands[i + 1];
-            } else if (i == index)  {
-                newIslands[i] = mergedIsland;
-            } else {
-                newIslands[i] = islands[i];
-            }
-        }
-        islands = newIslands;
-    }
-
-    /**
-     * Returns a new island array with the new land cell appended
-     * to the existing island.
-     */
-    private int[][] addLandToIsland(int[][] island, int[] newLandPosition) {
+    private void addLandToIsland(int[][] island,int islandIndex, int[] currentLandCoordinates) {
         int size = island.length;
-        int[][] mergedIsland = new int[size + 1][];
+        int[][] expandedIsland = new int[size + 1][];
         for (int i = 0; i < size; i++) {
-            mergedIsland[i] = island[i];
+            expandedIsland[i] = island[i];
         }
-        mergedIsland[size] = newLandPosition;
-        return mergedIsland;
+        expandedIsland[size] = currentLandCoordinates;
+        islandGroups[islandIndex] = expandedIsland;
     }
 
     /**
-     * Creates a new island composed of a single land cell
-     * and appends it to the list of islands.
+     * Creates a new island consisting of a single land cell
+     * and adds it to the islands array.
      */
-    private void createNewIsland(int[] newLandPosition) {
-        int[][] newIslandUnit = new int[1][];
-        newIslandUnit[0] = newLandPosition;
-        int size = islands.length;
+    private void createNewIsland(int[] currentLandCoordinates) {
+        ensureCapacityForIslands();
+        int[][] newIsland = new int[1][];
+        newIsland[0] = currentLandCoordinates;
+        islandGroups[islandCount++] = newIsland;
+    }
 
-        int[][][] newIsland = new int[size + 1][][];
-        for (int i = 0; i < size; i++) {
-            newIsland[i] = islands[i];
+    /**
+     * Ensures the islands array has sufficient capacity.
+     * Doubles its size if the current capacity is reached.
+     */
+    private void ensureCapacityForIslands() {
+        if (islandCount == islandGroups.length) {
+            int[][][] resizedIslands = new int[islandGroups.length * 2][][];
+            for (int i = 0; i < islandCount; i++) {
+                resizedIslands[i] = islandGroups[i];
+            }
+            islandGroups = resizedIslands;
         }
-
-        newIsland[size] = newIslandUnit;
-        islands = newIsland;
     }
 
 }
