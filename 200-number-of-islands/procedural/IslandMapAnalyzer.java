@@ -1,7 +1,7 @@
 /**
  * Analyzes a 2D map to identify and count disconnected land masses (islands).
- * Does not use standard algorithms like DFS or BFS.
- * Islands are tracked using primitive arrays and adjacency logic (top and left neighbors only).
+ * Uses primitive arrays and manual adjacency logic instead of standard algorithms like DFS or BFS.
+ * Adjacency is considered only for top and left neighbors, ensuring deterministic island formation.
  */
 
 public class IslandMapAnalyzer {
@@ -11,16 +11,22 @@ public class IslandMapAnalyzer {
     private int islandCount = 0;
     private final int MAX_COLS;
 
+    /**
+     * Constructs an analyzer instance for a given 2D binary grid.
+     *
+     * @param grid the map grid where 1 represents land and 0 represents water
+     */
     public IslandMapAnalyzer(int[][] grid) {
         this.grid = grid;
         MAX_COLS = grid[0].length;
-        islandGroups = new int[256][]; // Initial capacity
+        islandGroups = new int[256][]; // Initial capacity; grows dynamically
     }
 
     /**
-     * Iterates over the entire map to identify land cells (value == 1).
-     * Each land cell is either merged into an existing island or starts a new one.
-     * Returns the total number of identified islands.
+     * Iterates over the entire map to identify and group land cells into islands.
+     * Returns the total number of distinct islands found.
+     *
+     * @return total island count
      */
     public int checkMap() {
         for (int row = 0; row < grid.length; row++) {
@@ -36,8 +42,8 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Integrates a new land cell into existing islands if it's adjacent.
-     * If no adjacent islands are found, a new island is created.
+     * Attempts to associate a land cell with existing adjacent islands,
+     * or creates a new island if no adjacent islands are found.
      */
     private void connectLandCell(int encodedCoordinate) {
         int[] adjacentIslands = findAdjacentIslands(encodedCoordinate);
@@ -49,9 +55,11 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Scans all current islands to check if the new land cell is adjacent
-     * (above or to the left) to any of them.
-     * Returns the indexes of at most two adjacent islands.
+     * Identifies indexes of islands that are adjacent (top or left) to a new land cell.
+     * Scans all existing islands. At most two adjacent islands are expected due to input ordering.
+     *
+     * @param encodedCoordinate encoded coordinate of the new land cell
+     * @return array of adjacent island indexes
      */
     private int[] findAdjacentIslands(int encodedCoordinate) {
         int[] adjacentIslands = new int[0];
@@ -69,10 +77,12 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Returns true if the new land cell is directly above or to the left
-     * of the current land cell.
-     * This is the only adjacency rule used, which guarantees that each new
-     * land cell can be adjacent to at most two existing islands.
+     * Determines if two encoded coordinates represent adjacent land cells.
+     * Only top and left adjacency is considered (to avoid redundancy and recursion).
+     *
+     * @param encodedExistingLand existing land cell
+     * @param encodedCoordinate new land cell
+     * @return true if adjacent (up or left), false otherwise
      */
     private boolean isAdjacentUpOrLeft(int encodedExistingLand, int encodedCoordinate) {
         int[] newLandCoordinates = decodeCoordinates(encodedCoordinate);
@@ -88,8 +98,12 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Returns a new array containing the existing adjacent island indexes
-     * plus the newly found one.
+     * Appends an island index to the list of detected adjacent islands.
+     * Creates a new array with increased capacity.
+     *
+     * @param adjacentIslands current array of island indexes
+     * @param islandIndex new index to append
+     * @return new array containing the appended index
      */
     private int[] appendIslandIndex(int[] adjacentIslands, int islandIndex) {
         int size = adjacentIslands.length;
@@ -102,9 +116,11 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Merges the new land cell into the connected island(s).
-     * If connected to two islands, merges both into one.
-     * If connected to a single island, the land is simply appended to it.
+     * Merges the new land cell into the appropriate island(s).
+     * If two adjacent islands are found, they are merged together.
+     *
+     * @param connectedIslands indexes of adjacent islands
+     * @param encodedCoordinate the new land cell to integrate
      */
     private void mergeIslandsAndLand(int[] connectedIslands, int encodedCoordinate) {
         int firstIslandIndex = connectedIslands[0];
@@ -121,8 +137,12 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Returns a new island array by concatenating the land cells of two islands.
-     * Used when the new land bridges two distinct islands.
+     * Concatenates two island arrays into one.
+     * Used when two distinct islands are connected by a new land cell.
+     *
+     * @param firstIsland the first island
+     * @param secondIsland the second island
+     * @return merged island array
      */
     private int[] getMergedIsland(int[] firstIsland,int[] secondIsland) {
         int size = firstIsland.length + secondIsland.length;
@@ -139,9 +159,10 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Removes the second island involved in a merge by shifting
-     * all subsequent islands left in the array.
-     * Decreases the total island count.
+     * Removes the specified island from the array by shifting all subsequent islands left.
+     * Updates the island count accordingly.
+     *
+     * @param indexToRemove index of island to remove
      */
     private void removeSecondIslandFromArray(int indexToRemove) {
         for (int i = indexToRemove; i < islandCount - 1; i++) {
@@ -151,8 +172,12 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Expands the target island to include a new land cell.
-     * Updates the islands array at the specified index.
+     * Adds a land cell to the specified island group.
+     * Replaces the island's array with a new one that includes the additional cell.
+     *
+     * @param island the original island
+     * @param islandIndex index of the island in the main array
+     * @param encodedCoordinate land cell to add
      */
     private void addLandToIsland(int[] island,int islandIndex, int encodedCoordinate) {
         int size = island.length;
@@ -165,8 +190,10 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Creates a new island consisting of a single land cell
-     * and adds it to the islands array.
+     * Creates a new island with a single land cell.
+     * Adds it to the island group array and increments the island count.
+     *
+     * @param encodedCoordinate coordinate of the new land cell
      */
     private void createNewIsland(int encodedCoordinate) {
         ensureCapacityForIslands();
@@ -176,8 +203,8 @@ public class IslandMapAnalyzer {
     }
 
     /**
-     * Ensures the islands array has sufficient capacity.
-     * Doubles its size if the current capacity is reached.
+     * Ensures that the islandGroups array has capacity for at least one more island.
+     * Doubles its size if the capacity has been reached.
      */
     private void ensureCapacityForIslands() {
         if (islandCount == islandGroups.length) {
@@ -189,10 +216,24 @@ public class IslandMapAnalyzer {
         }
     }
 
+    /**
+     * Encodes a 2D coordinate into a single integer.
+     * Used to simplify storage and comparison of coordinates.
+     *
+     * @param row the row index
+     * @param col the column index
+     * @return encoded coordinate
+     */
     private int encodeCoordinates(int row, int col) {
         return row * MAX_COLS + col;
     }
 
+    /**
+     * Decodes an encoded coordinate back into a 2D [row, col] array.
+     *
+     * @param encodedCoordinate the encoded value
+     * @return int array with [row, col]
+     */
     private int[] decodeCoordinates(int encodedCoordinate) {
         int col = encodedCoordinate % MAX_COLS;
         int row = encodedCoordinate / MAX_COLS;
