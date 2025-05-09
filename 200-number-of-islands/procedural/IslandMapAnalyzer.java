@@ -33,7 +33,7 @@ public class IslandMapAnalyzer {
             for (int col = 0; col < grid[row].length; col++) {
                 boolean isLand = grid[row][col] == 1;
                 if (isLand) {
-                    int currentEncodedCoordinate = encodeCoordinates(row,col);
+                    int currentEncodedCoordinate = encodeCoordinates(row, col);
                     connectLandCell(currentEncodedCoordinate);
                 }
             }
@@ -81,7 +81,7 @@ public class IslandMapAnalyzer {
      * Only top and left adjacency is considered (to avoid redundancy and recursion).
      *
      * @param encodedExistingLand existing land cell
-     * @param encodedCoordinate new land cell
+     * @param encodedCoordinate   new land cell
      * @return true if adjacent (up or left), false otherwise
      */
     private boolean isAdjacentUpOrLeft(int encodedExistingLand, int encodedCoordinate) {
@@ -93,8 +93,7 @@ public class IslandMapAnalyzer {
         int existingRow = existingLandCoordinates[0];
         int existingCol = existingLandCoordinates[1];
 
-        return (row - 1 == existingRow && existingCol == col) ||
-                (row == existingRow && existingCol == col -1);
+        return (row - 1 == existingRow && existingCol == col) || (row == existingRow && existingCol == col - 1);
     }
 
     /**
@@ -102,7 +101,7 @@ public class IslandMapAnalyzer {
      * Creates a new array with increased capacity.
      *
      * @param adjacentIslands current array of island indexes
-     * @param islandIndex new index to append
+     * @param islandIndex     new index to append
      * @return new array containing the appended index
      */
     private int[] appendIslandIndex(int[] adjacentIslands, int islandIndex) {
@@ -119,18 +118,18 @@ public class IslandMapAnalyzer {
      * Merges the new land cell into the appropriate island(s).
      * If two adjacent islands are found, they are merged together.
      *
-     * @param connectedIslands indexes of adjacent islands
+     * @param connectedIslands  indexes of adjacent islands
      * @param encodedCoordinate the new land cell to integrate
      */
     private void mergeIslandsAndLand(int[] connectedIslands, int encodedCoordinate) {
         int firstIslandIndex = connectedIslands[0];
         int[] firstIsland = islandGroups[firstIslandIndex];
-        addLandToIsland(firstIsland,firstIslandIndex,encodedCoordinate);
+        addLandToIsland(firstIsland, firstIslandIndex, encodedCoordinate);
 
         if (connectedIslands.length > 1) {
             int secondIslandIndex = connectedIslands[1];
             int[] secondIsland = islandGroups[secondIslandIndex];
-            int[] mergedIsland = getMergedIsland(firstIsland,secondIsland);
+            int[] mergedIsland = getMergedIsland(firstIsland, secondIsland);
             islandGroups[firstIslandIndex] = mergedIsland;
             removeSecondIslandFromArray(secondIslandIndex);
         }
@@ -140,19 +139,19 @@ public class IslandMapAnalyzer {
      * Concatenates two island arrays into one.
      * Used when two distinct islands are connected by a new land cell.
      *
-     * @param firstIsland the first island
+     * @param firstIsland  the first island
      * @param secondIsland the second island
      * @return merged island array
      */
-    private int[] getMergedIsland(int[] firstIsland,int[] secondIsland) {
+    private int[] getMergedIsland(int[] firstIsland, int[] secondIsland) {
         int size = firstIsland.length + secondIsland.length;
         int[] mergedIsland = new int[size];
 
-        for (int i = 0; i < firstIsland.length ; i++) {
+        for (int i = 0; i < firstIsland.length; i++) {
             mergedIsland[i] = firstIsland[i];
         }
         int nextIndex = firstIsland.length;
-        for (int i = 0; i < secondIsland.length ; i++) {
+        for (int i = 0; i < secondIsland.length; i++) {
             mergedIsland[nextIndex + i] = secondIsland[i];
         }
         return mergedIsland;
@@ -175,11 +174,11 @@ public class IslandMapAnalyzer {
      * Adds a land cell to the specified island group.
      * Replaces the island's array with a new one that includes the additional cell.
      *
-     * @param island the original island
-     * @param islandIndex index of the island in the main array
+     * @param island            the original island
+     * @param islandIndex       index of the island in the main array
      * @param encodedCoordinate land cell to add
      */
-    private void addLandToIsland(int[] island,int islandIndex, int encodedCoordinate) {
+    private void addLandToIsland(int[] island, int islandIndex, int encodedCoordinate) {
         int size = island.length;
         int[] expandedIsland = new int[size + 1];
         for (int i = 0; i < size; i++) {
